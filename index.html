@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market List</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBF6EC;
+    --paper-dark:#F1E8D3;
+    --pine:#2F4B3C;
+    --pine-dark:#1E3128;
+    --mustard:#D9A441;
+    --tomato:#C1442E;
+    --ink:#26241F;
+    --ink-soft:#6B6555;
+    --line:#DCD0B0;
+    --chalk:#FFFDF7;
+    --radius:10px;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .app{
+    max-width:640px;
+    margin:0 auto;
+    padding:28px 20px 60px;
+  }
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:22px;
+    flex-wrap:wrap;
+  }
+  .logo{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:2rem;
+    letter-spacing:-0.01em;
+    margin:0;
+    color:var(--pine-dark);
+  }
+  .logo span{color:var(--tomato);}
+
+  button{
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    border:none;
+  }
+
+  .add-category-btn{
+    background:none;
+    color:var(--pine);
+    border:1.5px solid var(--pine);
+    border-radius:999px;
+    padding:8px 16px;
+    font-size:0.85rem;
+    font-weight:600;
+    white-space:nowrap;
+    transition:background .15s ease, color .15s ease;
+  }
+  .add-category-btn:hover{background:var(--pine);color:var(--chalk);}
+
+  /* ---------- Add item form ---------- */
+  .add-item-form{
+    display:flex;
+    gap:8px;
+    margin-bottom:14px;
+    flex-wrap:wrap;
+  }
+  .add-item-form input[type="text"]{
+    flex:1 1 200px;
+    padding:12px 14px;
+    border:1.5px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--chalk);
+    font-size:0.95rem;
+    color:var(--ink);
+  }
+  .add-item-form select{
+    padding:12px 10px;
+    border:1.5px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--chalk);
+    font-size:0.9rem;
+    color:var(--ink);
+    max-width:150px;
+  }
+  .add-item-form input:focus,
+  .add-item-form select:focus,
+  .new-category-form input:focus{
+    outline:2px solid var(--mustard);
+    outline-offset:1px;
+  }
+  .add-item-form button{
+    background:var(--tomato);
+    color:var(--chalk);
+    border-radius:var(--radius);
+    padding:12px 20px;
+    font-weight:600;
+    font-size:0.95rem;
+  }
+  .add-item-form button:hover{background:#a83a26;}
+
+  /* ---------- New category form ---------- */
+  .new-category-form{
+    display:flex;
+    gap:8px;
+    margin:-4px 0 18px;
+    flex-wrap:wrap;
+  }
+  .new-category-form.hidden{display:none;}
+  .new-category-form input{
+    flex:1 1 180px;
+    padding:10px 12px;
+    border:1.5px dashed var(--pine);
+    border-radius:var(--radius);
+    background:var(--chalk);
+    font-size:0.9rem;
+  }
+  .new-category-form .confirm{
+    background:var(--pine);
+    color:var(--chalk);
+    border-radius:var(--radius);
+    padding:10px 16px;
+    font-weight:600;
+    font-size:0.85rem;
+  }
+  .new-category-form .cancel{
+    background:none;
+    color:var(--ink-soft);
+    padding:10px 10px;
+    font-size:0.85rem;
+    text-decoration:underline;
+  }
+
+  /* ---------- Category sections ---------- */
+  .categories{
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+  }
+  .category{
+    background:var(--paper-dark);
+    border-radius:var(--radius);
+    padding:16px 16px 8px;
+  }
+  .aisle-sign{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:var(--pine);
+    color:var(--chalk);
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:0.95rem;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    padding:7px 16px 7px 26px;
+    border-radius:6px;
+    position:relative;
+    margin-bottom:12px;
+  }
+  .aisle-sign .grommet{
+    position:absolute;
+    left:10px;
+    top:50%;
+    transform:translateY(-50%);
+    width:6px;
+    height:6px;
+    background:var(--paper-dark);
+    border-radius:50%;
+  }
+  .aisle-sign .delete-cat{
+    background:none;
+    border:none;
+    color:var(--chalk);
+    opacity:0.55;
+    font-size:0.9rem;
+    line-height:1;
+    padding:0 0 0 6px;
+  }
+  .aisle-sign .delete-cat:hover{opacity:1;}
+
+  .item-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+  }
+  .item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:9px 2px;
+    border-bottom:1px solid var(--line);
+  }
+  .item:last-child{border-bottom:none;}
+  .item label{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    cursor:pointer;
+    flex:1;
+    font-size:0.98rem;
+  }
+  .item input[type="checkbox"]{
+    appearance:none;
+    width:19px;
+    height:19px;
+    border:2px solid var(--pine);
+    border-radius:5px;
+    flex-shrink:0;
+    display:grid;
+    place-content:center;
+    cursor:pointer;
+  }
+  .item input[type="checkbox"]::before{
+    content:"";
+    width:10px;
+    height:10px;
+    border-radius:2px;
+    transform:scale(0);
+    transition:transform .12s ease;
+    background:var(--pine);
+  }
+  .item input[type="checkbox"]:checked::before{transform:scale(1);}
+  .item .remove{
+    background:none;
+    color:var(--ink-soft);
+    opacity:0.5;
+    font-size:1rem;
+    padding:2px 6px;
+  }
+  .item .remove:hover{opacity:1;color:var(--tomato);}
+
+  .empty-note{
+    color:var(--ink-soft);
+    font-size:0.85rem;
+    font-style:italic;
+    margin:0 0 12px 2px;
+  }
+
+  /* ---------- Receipt / history strip ---------- */
+  .receipt{
+    margin-top:32px;
+    background:var(--chalk);
+    border-radius:var(--radius);
+    padding:18px 18px 16px;
+    position:relative;
+  }
+  .receipt::before{
+    content:"";
+    position:absolute;
+    top:0;left:16px;right:16px;
+    border-top:2px dashed var(--line);
+  }
+  .receipt-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.75rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:8px 0 12px;
+  }
+  #clearHistory{
+    background:none;
+    color:var(--ink-soft);
+    text-decoration:underline;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.72rem;
+  }
+  #clearHistory:hover{color:var(--tomato);}
+  .receipt-items{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .receipt-chip{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.82rem;
+    background:var(--paper);
+    border:1px solid var(--line);
+    color:var(--ink);
+    border-radius:999px;
+    padding:6px 12px;
+    transition:background .12s ease, border-color .12s ease;
+  }
+  .receipt-chip:hover{background:var(--mustard);border-color:var(--mustard);color:var(--pine-dark);}
+  .receipt-empty{
+    font-size:0.85rem;
+    color:var(--ink-soft);
+    margin:0;
+  }
+
+  @media (max-width:420px){
+    .logo{font-size:1.6rem;}
+    .add-item-form select{max-width:120px;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <h1 class="logo">Market <span>List</span></h1>
+    <button class="add-category-btn" id="toggleCategoryForm">+ New aisle</button>
+  </header>
+
+  <form class="add-item-form" id="addItemForm">
+    <input type="text" id="itemInput" placeholder="Add an item…" autocomplete="off" required>
+    <select id="categorySelect"></select>
+    <button type="submit">Add</button>
+  </form>
+
+  <div class="new-category-form hidden" id="newCategoryForm">
+    <input type="text" id="newCategoryInput" placeholder="Aisle name, e.g. Snacks">
+    <button type="button" class="confirm" id="confirmNewCategory">Add aisle</button>
+    <button type="button" class="cancel" id="cancelNewCategory">Cancel</button>
+  </div>
+
+  <main class="categories" id="categoriesContainer"></main>
+
+  <footer class="receipt">
+    <div class="receipt-head">
+      <span>From last trip</span>
+      <button id="clearHistory">clear</button>
+    </div>
+    <div class="receipt-items" id="receiptItems"></div>
+    <p class="receipt-empty" id="receiptEmpty">Items you check off will show up here so you can add them back next time.</p>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'marketListData';
+
+  const DEFAULT_CATEGORIES = [
+    'Produce','Dairy & Eggs','Meat & Seafood','Bakery',
+    'Pantry','Frozen','Beverages','Household','Other'
+  ];
+
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        const parsed = JSON.parse(raw);
+        if(parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.items)){
+          if(!Array.isArray(parsed.history)) parsed.history = [];
+          return parsed;
+        }
+      }
+    }catch(e){ /* fall through to default */ }
+    return {
+      categories: DEFAULT_CATEGORIES.slice(),
+      items: [],
+      history: []
+    };
+  }
+
+  function saveState(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  let state = loadState();
+
+  function uid(){
+    return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+
+  // ---------- Rendering ----------
+
+  function renderCategorySelect(){
+    const select = document.getElementById('categorySelect');
+    const prev = select.value;
+    select.innerHTML = '';
+    state.categories.forEach(cat=>{
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      select.appendChild(opt);
+    });
+    if(state.categories.includes(prev)) select.value = prev;
+  }
+
+  function renderCategories(){
+    const container = document.getElementById('categoriesContainer');
+    container.innerHTML = '';
+
+    state.categories.forEach(cat=>{
+      const section = document.createElement('section');
+      section.className = 'category';
+
+      const sign = document.createElement('div');
+      sign.className = 'aisle-sign';
+      sign.innerHTML = `<span class="grommet"></span>${escapeHtml(cat)}`;
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'delete-cat';
+      delBtn.title = 'Delete this aisle';
+      delBtn.textContent = '×';
+      delBtn.addEventListener('click', ()=> deleteCategory(cat));
+      sign.appendChild(delBtn);
+
+      section.appendChild(sign);
+
+      const itemsInCat = state.items.filter(it=>it.category === cat);
+
+      if(itemsInCat.length === 0){
+        const note = document.createElement('p');
+        note.className = 'empty-note';
+        note.textContent = 'No items yet — add one above.';
+        section.appendChild(note);
+      } else {
+        const ul = document.createElement('ul');
+        ul.className = 'item-list';
+        itemsInCat.forEach(item=>{
+          const li = document.createElement('li');
+          li.className = 'item';
+
+          const label = document.createElement('label');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = false;
+          checkbox.addEventListener('change', ()=> checkOffItem(item.id));
+          const span = document.createElement('span');
+          span.textContent = item.name;
+          label.appendChild(checkbox);
+          label.appendChild(span);
+
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'remove';
+          removeBtn.textContent = '×';
+          removeBtn.title = 'Remove without saving';
+          removeBtn.addEventListener('click', ()=> removeItem(item.id));
+
+          li.appendChild(label);
+          li.appendChild(removeBtn);
+          ul.appendChild(li);
+        });
+        section.appendChild(ul);
+      }
+
+      container.appendChild(section);
+    });
+  }
+
+  function renderHistory(){
+    const wrap = document.getElementById('receiptItems');
+    const empty = document.getElementById('receiptEmpty');
+    wrap.innerHTML = '';
+
+    if(state.history.length === 0){
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    state.history.forEach(h=>{
+      const chip = document.createElement('button');
+      chip.className = 'receipt-chip';
+      chip.textContent = '+ ' + h.name;
+      chip.title = `Add back to ${h.category}`;
+      chip.addEventListener('click', ()=> reAddFromHistory(h));
+      wrap.appendChild(chip);
+    });
+  }
+
+  function renderAll(){
+    renderCategorySelect();
+    renderCategories();
+    renderHistory();
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ---------- Mutations ----------
+
+  function addItem(name, category){
+    name = name.trim();
+    if(!name) return;
+    state.items.push({ id: uid(), name, category });
+    saveState();
+    renderCategories();
+  }
+
+  function removeItem(id){
+    state.items = state.items.filter(it=>it.id !== id);
+    saveState();
+    renderCategories();
+  }
+
+  function checkOffItem(id){
+    const item = state.items.find(it=>it.id === id);
+    if(!item) return;
+
+    state.items = state.items.filter(it=>it.id !== id);
+
+    const alreadyInHistory = state.history.some(
+      h=> h.name.toLowerCase() === item.name.toLowerCase() && h.category === item.category
+    );
+    if(!alreadyInHistory){
+      state.history.unshift({ name: item.name, category: item.category });
+    }
+    saveState();
+    renderCategories();
+    renderHistory();
+  }
+
+  function reAddFromHistory(h){
+    if(!state.categories.includes(h.category)){
+      state.categories.push(h.category);
+    }
+    const alreadyActive = state.items.some(
+      it=> it.name.toLowerCase() === h.name.toLowerCase() && it.category === h.category
+    );
+    if(!alreadyActive){
+      state.items.push({ id: uid(), name: h.name, category: h.category });
+    }
+    saveState();
+    renderAll();
+  }
+
+  function addCategory(name){
+    name = name.trim();
+    if(!name) return;
+    const exists = state.categories.some(c=>c.toLowerCase() === name.toLowerCase());
+    if(exists) return;
+    state.categories.push(name);
+    saveState();
+    renderAll();
+  }
+
+  function deleteCategory(cat){
+    const itemCount = state.items.filter(it=>it.category === cat).length;
+    const msg = itemCount > 0
+      ? `Delete "${cat}" and its ${itemCount} item(s)?`
+      : `Delete "${cat}"?`;
+    if(!confirm(msg)) return;
+    state.categories = state.categories.filter(c=>c !== cat);
+    state.items = state.items.filter(it=>it.category !== cat);
+    saveState();
+    renderAll();
+  }
+
+  function clearHistory(){
+    if(state.history.length === 0) return;
+    if(!confirm('Clear your "from last trip" list?')) return;
+    state.history = [];
+    saveState();
+    renderHistory();
+  }
+
+  // ---------- Events ----------
+
+  document.getElementById('addItemForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const input = document.getElementById('itemInput');
+    const select = document.getElementById('categorySelect');
+    addItem(input.value, select.value);
+    input.value = '';
+    input.focus();
+  });
+
+  document.getElementById('toggleCategoryForm').addEventListener('click', function(){
+    document.getElementById('newCategoryForm').classList.toggle('hidden');
+    document.getElementById('newCategoryInput').focus();
+  });
+
+  document.getElementById('cancelNewCategory').addEventListener('click', function(){
+    document.getElementById('newCategoryForm').classList.add('hidden');
+    document.getElementById('newCategoryInput').value = '';
+  });
+
+  document.getElementById('confirmNewCategory').addEventListener('click', function(){
+    const input = document.getElementById('newCategoryInput');
+    addCategory(input.value);
+    input.value = '';
+    document.getElementById('newCategoryForm').classList.add('hidden');
+  });
+
+  document.getElementById('newCategoryInput').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      document.getElementById('confirmNewCategory').click();
+    }
+  });
+
+  document.getElementById('clearHistory').addEventListener('click', clearHistory);
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
