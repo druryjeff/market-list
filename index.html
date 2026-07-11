@@ -357,16 +357,34 @@
     gap:8px;
   }
   .receipt-chip{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:0.82rem;
+    display:flex;
+    align-items:center;
+    gap:2px;
     background:var(--paper);
     border:1px solid var(--line);
-    color:var(--ink);
     border-radius:999px;
-    padding:6px 12px;
+    padding:2px 4px 2px 12px;
     transition:background .12s ease, border-color .12s ease;
   }
-  .receipt-chip:hover{background:var(--mustard);border-color:var(--mustard);color:var(--pine-dark);}
+  .receipt-chip:hover{background:var(--mustard);border-color:var(--mustard);}
+  .receipt-chip:hover .receipt-title{color:var(--pine-dark);}
+  .receipt-title{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.82rem;
+    background:none;
+    color:var(--ink);
+    padding:4px 4px;
+  }
+  .receipt-remove{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.9rem;
+    background:none;
+    color:var(--ink-soft);
+    opacity:0.5;
+    padding:4px 8px;
+    line-height:1;
+  }
+  .receipt-remove:hover{opacity:1;color:var(--tomato);}
   .receipt-empty{
     font-size:0.85rem;
     color:var(--ink-soft);
@@ -605,11 +623,23 @@
     empty.style.display = 'none';
 
     state.history.forEach(h=>{
-      const chip = document.createElement('button');
+      const chip = document.createElement('div');
       chip.className = 'receipt-chip';
-      chip.textContent = '+ ' + h.name;
-      chip.title = `Add back to ${h.category}`;
-      chip.addEventListener('click', ()=> reAddFromHistory(h));
+
+      const title = document.createElement('button');
+      title.className = 'receipt-title';
+      title.textContent = h.name;
+      title.title = `Add back to ${h.category}`;
+      title.addEventListener('click', ()=> reAddFromHistory(h));
+
+      const remove = document.createElement('button');
+      remove.className = 'receipt-remove';
+      remove.textContent = '×';
+      remove.title = 'Remove from this list';
+      remove.addEventListener('click', ()=> removeFromHistory(h));
+
+      chip.appendChild(title);
+      chip.appendChild(remove);
       wrap.appendChild(chip);
     });
   }
@@ -722,6 +752,14 @@
     if(state.history.length === 0) return;
     if(!confirm('Clear your "from last trip" list?')) return;
     state.history = [];
+    saveState();
+    renderHistory();
+  }
+
+  function removeFromHistory(h){
+    state.history = state.history.filter(
+      item => !(item.name.toLowerCase() === h.name.toLowerCase() && item.category === h.category)
+    );
     saveState();
     renderHistory();
   }
