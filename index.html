@@ -23,7 +23,7 @@
   }
 
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
+  html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden;}
   body{
     background:var(--paper);
     color:var(--ink);
@@ -85,6 +85,7 @@
   }
   .add-item-form input[type="text"]{
     flex:1 1 200px;
+    min-width:0;
     padding:12px 14px;
     border:1.5px solid var(--line);
     border-radius:var(--radius);
@@ -100,6 +101,7 @@
     font-size:0.9rem;
     color:var(--ink);
     max-width:150px;
+    min-width:0;
   }
   .add-item-form input:focus,
   .add-item-form select:focus,
@@ -127,6 +129,7 @@
   .new-category-form.hidden{display:none;}
   .new-category-form input{
     flex:1 1 180px;
+    min-width:0;
     padding:10px 12px;
     border:1.5px dashed var(--pine);
     border-radius:var(--radius);
@@ -216,7 +219,11 @@
     gap:10px;
     cursor:pointer;
     flex:1;
+    min-width:0;
     font-size:0.98rem;
+  }
+  .item label span{
+    overflow-wrap:anywhere;
   }
   .item input[type="checkbox"]{
     appearance:none;
@@ -275,6 +282,7 @@
   }
   .edit-row .edit-name{
     flex:1 1 140px;
+    min-width:0;
     padding:8px 10px;
     border:1.5px solid var(--pine);
     border-radius:6px;
@@ -285,6 +293,7 @@
   }
   .edit-row .edit-category{
     flex:0 1 140px;
+    min-width:0;
     padding:8px 8px;
     border:1.5px solid var(--pine);
     border-radius:6px;
@@ -422,11 +431,11 @@
     <button class="add-category-btn" id="toggleCategoryForm">+ New aisle</button>
   </header>
 
-  <form class="add-item-form" id="addItemForm">
-    <input type="text" id="itemInput" placeholder="Add an item…" autocomplete="off" required>
+  <div class="add-item-form" id="addItemForm">
+    <input type="text" id="itemInput" placeholder="Add an item…" autocomplete="off">
     <select id="categorySelect"></select>
-    <button type="submit">Add</button>
-  </form>
+    <button type="button" id="addItemBtn">Add</button>
+  </div>
 
   <div class="new-category-form hidden" id="newCategoryForm">
     <input type="text" id="newCategoryInput" placeholder="Aisle name, e.g. Snacks">
@@ -809,13 +818,22 @@
 
   // ---------- Events ----------
 
-  document.getElementById('addItemForm').addEventListener('submit', function(e){
-    e.preventDefault();
+  function submitNewItem(){
     const input = document.getElementById('itemInput');
     const select = document.getElementById('categorySelect');
+    if(!input.value.trim()) return;
     addItem(input.value, select.value);
     input.value = '';
     input.focus();
+  }
+
+  document.getElementById('addItemBtn').addEventListener('click', submitNewItem);
+
+  document.getElementById('itemInput').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      submitNewItem();
+    }
   });
 
   document.getElementById('toggleCategoryForm').addEventListener('click', function(){
