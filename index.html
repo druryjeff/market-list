@@ -351,6 +351,19 @@
     font-size:0.72rem;
   }
   #clearHistory:hover{color:var(--tomato);}
+  .receipt-groups{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .receipt-group-title{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.7rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
   .receipt-items{
     display:flex;
     flex-wrap:wrap;
@@ -428,7 +441,7 @@
       <span>From last trip</span>
       <button id="clearHistory">clear</button>
     </div>
-    <div class="receipt-items" id="receiptItems"></div>
+    <div class="receipt-groups" id="receiptItems"></div>
     <p class="receipt-empty" id="receiptEmpty">Items you check off will show up here so you can add them back next time.</p>
   </footer>
 
@@ -622,25 +635,52 @@
     }
     empty.style.display = 'none';
 
+    const groups = {};
     state.history.forEach(h=>{
-      const chip = document.createElement('div');
-      chip.className = 'receipt-chip';
+      if(!groups[h.category]) groups[h.category] = [];
+      groups[h.category].push(h);
+    });
 
-      const title = document.createElement('button');
-      title.className = 'receipt-title';
-      title.textContent = h.name;
-      title.title = `Add back to ${h.category}`;
-      title.addEventListener('click', ()=> reAddFromHistory(h));
+    const orderedCats = [
+      ...state.categories.filter(c=>groups[c]),
+      ...Object.keys(groups).filter(c=>!state.categories.includes(c)).sort()
+    ];
 
-      const remove = document.createElement('button');
-      remove.className = 'receipt-remove';
-      remove.textContent = '×';
-      remove.title = 'Remove from this list';
-      remove.addEventListener('click', ()=> removeFromHistory(h));
+    orderedCats.forEach(cat=>{
+      const group = document.createElement('div');
+      group.className = 'receipt-group';
 
-      chip.appendChild(title);
-      chip.appendChild(remove);
-      wrap.appendChild(chip);
+      const label = document.createElement('div');
+      label.className = 'receipt-group-title';
+      label.textContent = cat;
+      group.appendChild(label);
+
+      const row = document.createElement('div');
+      row.className = 'receipt-items';
+
+      groups[cat].forEach(h=>{
+        const chip = document.createElement('div');
+        chip.className = 'receipt-chip';
+
+        const title = document.createElement('button');
+        title.className = 'receipt-title';
+        title.textContent = h.name;
+        title.title = `Add back to ${h.category}`;
+        title.addEventListener('click', ()=> reAddFromHistory(h));
+
+        const remove = document.createElement('button');
+        remove.className = 'receipt-remove';
+        remove.textContent = '×';
+        remove.title = 'Remove from this list';
+        remove.addEventListener('click', ()=> removeFromHistory(h));
+
+        chip.appendChild(title);
+        chip.appendChild(remove);
+        row.appendChild(chip);
+      });
+
+      group.appendChild(row);
+      wrap.appendChild(group);
     });
   }
 
@@ -722,6 +762,9 @@
     if(!alreadyActive){
       state.items.push({ id: uid(), name: h.name, category: h.category });
     }
+    state.history = state.history.filter(
+      item => !(item.name.toLowerCase() === h.name.toLowerCase() && item.category === h.category)
+    );
     saveState();
     renderAll();
   }
