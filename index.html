@@ -239,6 +239,21 @@
     background:var(--pine);
   }
   .item input[type="checkbox"]:checked::before{transform:scale(1);}
+  .item-actions{
+    display:flex;
+    align-items:center;
+    gap:2px;
+    flex-shrink:0;
+  }
+  .item .edit-btn{
+    background:none;
+    color:var(--ink-soft);
+    opacity:0.55;
+    font-size:0.95rem;
+    padding:2px 6px;
+    line-height:1;
+  }
+  .item .edit-btn:hover{opacity:1;color:var(--pine);}
   .item .remove{
     background:none;
     color:var(--ink-soft);
@@ -247,6 +262,54 @@
     padding:2px 6px;
   }
   .item .remove:hover{opacity:1;color:var(--tomato);}
+
+  .item.editing{
+    display:block;
+    padding:9px 2px;
+  }
+  .edit-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    width:100%;
+  }
+  .edit-row .edit-name{
+    flex:1 1 140px;
+    padding:8px 10px;
+    border:1.5px solid var(--pine);
+    border-radius:6px;
+    background:var(--chalk);
+    font-size:0.9rem;
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+  }
+  .edit-row .edit-category{
+    flex:0 1 140px;
+    padding:8px 8px;
+    border:1.5px solid var(--pine);
+    border-radius:6px;
+    background:var(--chalk);
+    font-size:0.85rem;
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+  }
+  .edit-row .edit-save{
+    background:var(--pine);
+    color:var(--chalk);
+    border-radius:6px;
+    padding:8px 14px;
+    font-size:0.85rem;
+    font-weight:600;
+  }
+  .edit-row .edit-save:hover{background:var(--pine-dark);}
+  .edit-row .edit-cancel{
+    background:none;
+    color:var(--ink-soft);
+    font-size:0.85rem;
+    padding:8px 6px;
+    text-decoration:underline;
+  }
+  .edit-row .edit-cancel:hover{color:var(--tomato);}
 
   .empty-note{
     color:var(--ink-soft);
@@ -385,6 +448,7 @@
   }
 
   let state = loadState();
+  let editingItemId = null;
 
   function uid(){
     return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -440,6 +504,56 @@
           const li = document.createElement('li');
           li.className = 'item';
 
+          if(item.id === editingItemId){
+            li.classList.add('editing');
+
+            const editRow = document.createElement('div');
+            editRow.className = 'edit-row';
+
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'edit-name';
+            nameInput.value = item.name;
+
+            const catSelect = document.createElement('select');
+            catSelect.className = 'edit-category';
+            state.categories.forEach(c=>{
+              const opt = document.createElement('option');
+              opt.value = c;
+              opt.textContent = c;
+              if(c === item.category) opt.selected = true;
+              catSelect.appendChild(opt);
+            });
+
+            const saveBtn = document.createElement('button');
+            saveBtn.type = 'button';
+            saveBtn.className = 'edit-save';
+            saveBtn.textContent = 'Save';
+            saveBtn.addEventListener('click', ()=> saveEdit(item.id, nameInput.value, catSelect.value));
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'edit-cancel';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', cancelEdit);
+
+            nameInput.addEventListener('keydown', (e)=>{
+              if(e.key === 'Enter'){ e.preventDefault(); saveBtn.click(); }
+              if(e.key === 'Escape'){ e.preventDefault(); cancelBtn.click(); }
+            });
+
+            editRow.appendChild(nameInput);
+            editRow.appendChild(catSelect);
+            editRow.appendChild(saveBtn);
+            editRow.appendChild(cancelBtn);
+            li.appendChild(editRow);
+
+            ul.appendChild(li);
+            // focus after insertion so the cursor lands in the field
+            requestAnimationFrame(()=> nameInput.focus());
+            return;
+          }
+
           const label = document.createElement('label');
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
@@ -450,14 +564,26 @@
           label.appendChild(checkbox);
           label.appendChild(span);
 
+          const actions = document.createElement('div');
+          actions.className = 'item-actions';
+
+          const editBtn = document.createElement('button');
+          editBtn.className = 'edit-btn';
+          editBtn.title = 'Edit item';
+          editBtn.textContent = '✎';
+          editBtn.addEventListener('click', ()=> startEdit(item.id));
+
           const removeBtn = document.createElement('button');
           removeBtn.className = 'remove';
           removeBtn.textContent = '×';
           removeBtn.title = 'Remove without saving';
           removeBtn.addEventListener('click', ()=> removeItem(item.id));
 
+          actions.appendChild(editBtn);
+          actions.appendChild(removeBtn);
+
           li.appendChild(label);
-          li.appendChild(removeBtn);
+          li.appendChild(actions);
           ul.appendChild(li);
         });
         section.appendChild(ul);
@@ -512,6 +638,29 @@
 
   function removeItem(id){
     state.items = state.items.filter(it=>it.id !== id);
+    saveState();
+    renderCategories();
+  }
+
+  function startEdit(id){
+    editingItemId = id;
+    renderCategories();
+  }
+
+  function cancelEdit(){
+    editingItemId = null;
+    renderCategories();
+  }
+
+  function saveEdit(id, newName, newCategory){
+    const item = state.items.find(it=>it.id === id);
+    if(!item) return;
+    newName = newName.trim();
+    if(newName) item.name = newName;
+    if(newCategory && state.categories.includes(newCategory)){
+      item.category = newCategory;
+    }
+    editingItemId = null;
     saveState();
     renderCategories();
   }
