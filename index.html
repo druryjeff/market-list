@@ -6,7 +6,7 @@
 <title>Market List</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
     --paper:#FBF6EC;
@@ -48,8 +48,8 @@
     flex-wrap:wrap;
   }
   .logo{
-    font-family:'Bricolage Grotesque',serif;
-    font-weight:800;
+    font-family:'Fraunces',serif;
+    font-weight:600;
     font-size:2rem;
     letter-spacing:-0.01em;
     margin:0;
@@ -119,6 +119,22 @@
   }
   .add-item-form button:hover{background:#a83a26;}
 
+  .add-status{
+    min-height:1.1em;
+    margin:-6px 0 16px;
+    font-size:0.85rem;
+    color:var(--ink-soft);
+    opacity:0;
+    transform:translateY(-2px);
+    transition:opacity .18s ease, transform .18s ease;
+  }
+  .add-status.visible{
+    opacity:1;
+    transform:translateY(0);
+  }
+  .add-status.duplicate{color:var(--tomato);}
+  .add-status.moved{color:var(--pine);}
+
   /* ---------- New category form ---------- */
   .new-category-form{
     display:flex;
@@ -169,7 +185,7 @@
     gap:8px;
     background:var(--pine);
     color:var(--chalk);
-    font-family:'Bricolage Grotesque',serif;
+    font-family:'Fraunces',serif;
     font-weight:600;
     font-size:0.95rem;
     letter-spacing:0.03em;
@@ -211,6 +227,13 @@
     justify-content:space-between;
     padding:9px 2px;
     border-bottom:1px solid var(--line);
+  }
+  .item.flash{
+    animation:itemFlash 1s ease;
+  }
+  @keyframes itemFlash{
+    0%{ background:var(--mustard); }
+    100%{ background:transparent; }
   }
   .item:last-child{border-bottom:none;}
   .item label{
@@ -436,6 +459,7 @@
     <select id="categorySelect"></select>
     <button type="button" id="addItemBtn">Add</button>
   </div>
+  <p class="add-status" id="addStatus" aria-live="polite"></p>
 
   <div class="new-category-form hidden" id="newCategoryForm">
     <input type="text" id="newCategoryInput" placeholder="Aisle name, e.g. Snacks">
@@ -465,6 +489,92 @@
     'Pantry','Frozen','Beverages','Household','Other'
   ];
 
+  function toSentenceCase(str){
+    str = str.trim().replace(/\s+/g, ' ');
+    if(!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  }
+
+  // A handful of common grocery words ending in "-ie" whose plural just adds
+  // "s" (cookie -> cookies), which the generic "-ies -> -y" rule below would
+  // otherwise mangle (cookies -> "cooky"). Keyed by the lowercase plural.
+  const IE_PLURAL_EXCEPTIONS = {
+    cookies:'cookie', veggies:'veggie', smoothies:'smoothie',
+    brownies:'brownie', pies:'pie', movies:'movie'
+  };
+
+  // Words that look plural but are either mass nouns or are effectively
+  // always shopped-for in "plural" form — singularizing these would be wrong
+  // or just weird ("fries" -> "fry").
+  const NEVER_SINGULARIZE = new Set([
+    'molasses', 'fries', 'greens', 'oats', 'grits',
+    'asparagus', 'hummus', 'citrus'
+  ]);
+
+  function singularizeWord(word){
+    const lower = word.toLowerCase();
+
+    if(NEVER_SINGULARIZE.has(lower)) return word;
+
+    if(IE_PLURAL_EXCEPTIONS[lower]){
+      const singular = IE_PLURAL_EXCEPTIONS[lower];
+      const firstIsUpper = word.charAt(0) === word.charAt(0).toUpperCase();
+      return firstIsUpper ? singular.charAt(0).toUpperCase() + singular.slice(1) : singular;
+    }
+
+    if(word.length <= 3) return word;
+
+    if(lower.endsWith('ies')) return word.slice(0, -3) + 'y';        // berries -> berry
+    if(lower.endsWith('oes')) return word.slice(0, -2);              // tomatoes -> tomato
+
+    if(lower.endsWith('es')){
+      const stem = lower.slice(0, -2);
+      if(/[sxz]$/.test(stem) || stem.endsWith('ch') || stem.endsWith('sh')){
+        return word.slice(0, -2);                                    // dishes -> dish, boxes -> box
+      }
+    }
+
+    if(lower.endsWith('s') && !lower.endsWith('ss') && !lower.endsWith('us') && !lower.endsWith('is')){
+      return word.slice(0, -1);                                      // onions -> onion
+    }
+
+    return word;
+  }
+
+  function normalizeItemName(raw){
+    const sentenceCased = toSentenceCase(raw);
+    if(!sentenceCased) return sentenceCased;
+    const words = sentenceCased.split(' ');
+    words[words.length - 1] = singularizeWord(words[words.length - 1]);
+    return words.join(' ');
+  }
+
+  function normalizeState(state){
+    const seenActive = new Set();
+    state.items = state.items
+      .map(it => ({ ...it, name: normalizeItemName(it.name) }))
+      .filter(it => {
+        const key = it.name.toLowerCase();
+        if(seenActive.has(key)) return false;
+        seenActive.add(key);
+        return true;
+      });
+
+    const seenHistory = new Set();
+    const dedupedHistory = [];
+    state.history.forEach(h=>{
+      const name = normalizeItemName(h.name);
+      const key = name.toLowerCase();
+      if(!seenHistory.has(key)){
+        seenHistory.add(key);
+        dedupedHistory.push({ name, category: h.category });
+      }
+    });
+    state.history = dedupedHistory;
+
+    return state;
+  }
+
   function loadState(){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -472,7 +582,7 @@
         const parsed = JSON.parse(raw);
         if(parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.items)){
           if(!Array.isArray(parsed.history)) parsed.history = [];
-          return parsed;
+          return normalizeState(parsed);
         }
       }
     }catch(e){ /* fall through to default */ }
@@ -488,6 +598,7 @@
   }
 
   let state = loadState();
+  saveState(); // persist any casing/dedup cleanup from normalizeState immediately
   let editingItemId = null;
 
   function uid(){
@@ -543,6 +654,7 @@
         itemsInCat.forEach(item=>{
           const li = document.createElement('li');
           li.className = 'item';
+          li.dataset.id = item.id;
 
           if(item.id === editingItemId){
             li.classList.add('editing');
@@ -667,7 +779,11 @@
       const row = document.createElement('div');
       row.className = 'receipt-items';
 
-      groups[cat].forEach(h=>{
+      const sortedItems = [...groups[cat]].sort((a, b)=>
+        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+      );
+
+      sortedItems.forEach(h=>{
         const chip = document.createElement('div');
         chip.className = 'receipt-chip';
 
@@ -707,12 +823,52 @@
 
   // ---------- Mutations ----------
 
+  function flashItem(id){
+    const el = document.querySelector(`.item[data-id="${id}"]`);
+    if(!el) return;
+    el.classList.remove('flash');
+    // force reflow so the animation restarts if triggered again quickly
+    void el.offsetWidth;
+    el.classList.add('flash');
+  }
+
+  let addStatusTimeout = null;
+  function showAddStatus(message, tone){
+    const el = document.getElementById('addStatus');
+    clearTimeout(addStatusTimeout);
+    el.textContent = message;
+    el.className = 'add-status visible' + (tone ? ' ' + tone : '');
+    addStatusTimeout = setTimeout(()=>{
+      el.classList.remove('visible');
+    }, 2600);
+  }
+
   function addItem(name, category){
-    name = name.trim();
+    name = normalizeItemName(name);
     if(!name) return;
+
+    const activeMatch = state.items.find(
+      it => it.name.toLowerCase() === name.toLowerCase()
+    );
+    if(activeMatch){
+      flashItem(activeMatch.id);
+      showAddStatus(`${name} is already in ${activeMatch.category}.`, 'duplicate');
+      return;
+    }
+
+    const historyMatch = state.history.find(
+      h => h.name.toLowerCase() === name.toLowerCase()
+    );
+    if(historyMatch){
+      reAddFromHistory(historyMatch);
+      showAddStatus(`Added ${name} back from last trip (${historyMatch.category}).`, 'moved');
+      return;
+    }
+
     state.items.push({ id: uid(), name, category });
     saveState();
     renderCategories();
+    showAddStatus(`Added ${name} to ${category}.`);
   }
 
   function removeItem(id){
@@ -734,14 +890,38 @@
   function saveEdit(id, newName, newCategory){
     const item = state.items.find(it=>it.id === id);
     if(!item) return;
-    newName = newName.trim();
-    if(newName) item.name = newName;
-    if(newCategory && state.categories.includes(newCategory)){
-      item.category = newCategory;
+
+    const name = normalizeItemName(newName) || item.name;
+    let category = (newCategory && state.categories.includes(newCategory)) ? newCategory : item.category;
+
+    const activeMatch = state.items.find(
+      it => it.id !== id && it.name.toLowerCase() === name.toLowerCase()
+    );
+    if(activeMatch){
+      editingItemId = null;
+      renderCategories();
+      flashItem(activeMatch.id);
+      showAddStatus(`${name} is already in ${activeMatch.category}.`, 'duplicate');
+      return;
     }
+
+    const historyMatch = state.history.find(
+      h => h.name.toLowerCase() === name.toLowerCase()
+    );
+    if(historyMatch){
+      category = historyMatch.category;
+      state.history = state.history.filter(
+        h => h.name.toLowerCase() !== name.toLowerCase()
+      );
+      showAddStatus(`Cleared ${name} from last trip — moved to ${category}.`, 'moved');
+    }
+
+    item.name = name;
+    item.category = category;
+
     editingItemId = null;
     saveState();
-    renderCategories();
+    renderAll();
   }
 
   function checkOffItem(id){
@@ -766,13 +946,13 @@
       state.categories.push(h.category);
     }
     const alreadyActive = state.items.some(
-      it=> it.name.toLowerCase() === h.name.toLowerCase() && it.category === h.category
+      it=> it.name.toLowerCase() === h.name.toLowerCase()
     );
     if(!alreadyActive){
       state.items.push({ id: uid(), name: h.name, category: h.category });
     }
     state.history = state.history.filter(
-      item => !(item.name.toLowerCase() === h.name.toLowerCase() && item.category === h.category)
+      item => item.name.toLowerCase() !== h.name.toLowerCase()
     );
     saveState();
     renderAll();
