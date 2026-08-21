@@ -48,7 +48,7 @@
     flex-wrap:wrap;
   }
   .logo{
-    font-family:'Fraunces',serif;
+    font-family:'Bricolage Grotesque',sans-serif;
     font-weight:600;
     font-size:2rem;
     letter-spacing:-0.01em;
@@ -185,7 +185,7 @@
     gap:8px;
     background:var(--pine);
     color:var(--chalk);
-    font-family:'Fraunces',serif;
+    font-family:'Bricolage Grotesque',sans-serif;
     font-weight:600;
     font-size:0.95rem;
     letter-spacing:0.03em;
@@ -215,6 +215,11 @@
     padding:0 0 0 6px;
   }
   .aisle-sign .delete-cat:hover{opacity:1;}
+  .aisle-sign .delete-cat.armed{
+    opacity:1;
+    color:var(--mustard);
+    font-weight:600;
+  }
 
   .item-list{
     list-style:none;
@@ -290,8 +295,18 @@
     opacity:0.5;
     font-size:1rem;
     padding:2px 6px;
+    white-space:nowrap;
   }
   .item .remove:hover{opacity:1;color:var(--tomato);}
+  .item .remove.armed{
+    opacity:1;
+    color:var(--chalk);
+    background:var(--tomato);
+    border-radius:999px;
+    font-size:0.78rem;
+    font-weight:600;
+    padding:4px 10px;
+  }
 
   .item.editing{
     display:block;
@@ -383,6 +398,11 @@
     font-size:0.72rem;
   }
   #clearHistory:hover{color:var(--tomato);}
+  #clearHistory.armed{
+    color:var(--tomato);
+    font-weight:600;
+    text-decoration:none;
+  }
   .receipt-groups{
     display:flex;
     flex-direction:column;
@@ -542,9 +562,18 @@
   }
 
   function normalizeItemName(raw){
-    const sentenceCased = toSentenceCase(raw);
-    if(!sentenceCased) return sentenceCased;
-    const words = sentenceCased.split(' ');
+    // Storage/display keeps whatever grammatical number the person typed —
+    // only casing gets normalized here.
+    return toSentenceCase(raw);
+  }
+
+  function itemMatchKey(name){
+    // Used only for duplicate comparisons, never for storage/display, so
+    // "radish" and "radishes" are recognized as the same item without
+    // forcing either spelling on what's actually saved.
+    const lower = name.trim().toLowerCase();
+    if(!lower) return lower;
+    const words = lower.split(' ');
     words[words.length - 1] = singularizeWord(words[words.length - 1]);
     return words.join(' ');
   }
@@ -554,7 +583,7 @@
     state.items = state.items
       .map(it => ({ ...it, name: normalizeItemName(it.name) }))
       .filter(it => {
-        const key = it.name.toLowerCase();
+        const key = itemMatchKey(it.name);
         if(seenActive.has(key)) return false;
         seenActive.add(key);
         return true;
@@ -564,7 +593,7 @@
     const dedupedHistory = [];
     state.history.forEach(h=>{
       const name = normalizeItemName(h.name);
-      const key = name.toLowerCase();
+      const key = itemMatchKey(name);
       if(!seenHistory.has(key)){
         seenHistory.add(key);
         dedupedHistory.push({ name, category: h.category });
@@ -636,12 +665,14 @@
       delBtn.className = 'delete-cat';
       delBtn.title = 'Delete this aisle';
       delBtn.textContent = '×';
-      delBtn.addEventListener('click', ()=> deleteCategory(cat));
+      delBtn.addEventListener('click', ()=> armConfirm(delBtn, ()=> deleteCategory(cat), '✓ Sure?'));
       sign.appendChild(delBtn);
 
       section.appendChild(sign);
 
-      const itemsInCat = state.items.filter(it=>it.category === cat);
+      const itemsInCat = state.items
+        .filter(it=>it.category === cat)
+        .sort((a, b)=> a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
       if(itemsInCat.length === 0){
         const note = document.createElement('p');
@@ -729,7 +760,7 @@
           removeBtn.className = 'remove';
           removeBtn.textContent = '×';
           removeBtn.title = 'Remove without saving';
-          removeBtn.addEventListener('click', ()=> removeItem(item.id));
+          removeBtn.addEventListener('click', ()=> armConfirm(removeBtn, ()=> removeItem(item.id), '✓ Sure?'));
 
           actions.appendChild(editBtn);
           actions.appendChild(removeBtn);
@@ -832,6 +863,34 @@
     el.classList.add('flash');
   }
 
+  // A tap-to-arm, tap-again-to-confirm pattern used instead of the native
+  // confirm() dialog, which sandboxed preview environments (and some
+  // embedded webviews) silently block. First click puts the button into an
+  // "armed" state for a few seconds; a second click within that window
+  // actually performs the action. Clicking elsewhere, or letting it time
+  // out, reverts back to the normal state with nothing removed.
+  function armConfirm(button, action, armedLabel){
+    if(button.dataset.armed === '1'){
+      clearTimeout(button._armTimer);
+      delete button.dataset.armed;
+      button.classList.remove('armed');
+      button.textContent = button.dataset.originalLabel;
+      action();
+      return;
+    }
+
+    button.dataset.armed = '1';
+    button.dataset.originalLabel = button.textContent;
+    button.classList.add('armed');
+    button.textContent = armedLabel;
+
+    button._armTimer = setTimeout(()=>{
+      delete button.dataset.armed;
+      button.classList.remove('armed');
+      button.textContent = button.dataset.originalLabel;
+    }, 2500);
+  }
+
   let addStatusTimeout = null;
   function showAddStatus(message, tone){
     const el = document.getElementById('addStatus');
@@ -846,22 +905,23 @@
   function addItem(name, category){
     name = normalizeItemName(name);
     if(!name) return;
+    const key = itemMatchKey(name);
 
     const activeMatch = state.items.find(
-      it => it.name.toLowerCase() === name.toLowerCase()
+      it => itemMatchKey(it.name) === key
     );
     if(activeMatch){
       flashItem(activeMatch.id);
-      showAddStatus(`${name} is already in ${activeMatch.category}.`, 'duplicate');
+      showAddStatus(`${activeMatch.name} is already in ${activeMatch.category}.`, 'duplicate');
       return;
     }
 
     const historyMatch = state.history.find(
-      h => h.name.toLowerCase() === name.toLowerCase()
+      h => itemMatchKey(h.name) === key
     );
     if(historyMatch){
       reAddFromHistory(historyMatch);
-      showAddStatus(`Added ${name} back from last trip (${historyMatch.category}).`, 'moved');
+      showAddStatus(`Added ${historyMatch.name} back from last trip (${historyMatch.category}).`, 'moved');
       return;
     }
 
@@ -872,6 +932,8 @@
   }
 
   function removeItem(id){
+    const item = state.items.find(it=>it.id === id);
+    if(!item) return;
     state.items = state.items.filter(it=>it.id !== id);
     saveState();
     renderCategories();
@@ -893,27 +955,28 @@
 
     const name = normalizeItemName(newName) || item.name;
     let category = (newCategory && state.categories.includes(newCategory)) ? newCategory : item.category;
+    const key = itemMatchKey(name);
 
     const activeMatch = state.items.find(
-      it => it.id !== id && it.name.toLowerCase() === name.toLowerCase()
+      it => it.id !== id && itemMatchKey(it.name) === key
     );
     if(activeMatch){
       editingItemId = null;
       renderCategories();
       flashItem(activeMatch.id);
-      showAddStatus(`${name} is already in ${activeMatch.category}.`, 'duplicate');
+      showAddStatus(`${activeMatch.name} is already in ${activeMatch.category}.`, 'duplicate');
       return;
     }
 
     const historyMatch = state.history.find(
-      h => h.name.toLowerCase() === name.toLowerCase()
+      h => itemMatchKey(h.name) === key
     );
     if(historyMatch){
       category = historyMatch.category;
       state.history = state.history.filter(
-        h => h.name.toLowerCase() !== name.toLowerCase()
+        h => itemMatchKey(h.name) !== key
       );
-      showAddStatus(`Cleared ${name} from last trip — moved to ${category}.`, 'moved');
+      showAddStatus(`Cleared ${historyMatch.name} from last trip — moved to ${category}.`, 'moved');
     }
 
     item.name = name;
@@ -931,7 +994,7 @@
     state.items = state.items.filter(it=>it.id !== id);
 
     const alreadyInHistory = state.history.some(
-      h=> h.name.toLowerCase() === item.name.toLowerCase() && h.category === item.category
+      h=> itemMatchKey(h.name) === itemMatchKey(item.name)
     );
     if(!alreadyInHistory){
       state.history.unshift({ name: item.name, category: item.category });
@@ -945,14 +1008,15 @@
     if(!state.categories.includes(h.category)){
       state.categories.push(h.category);
     }
+    const key = itemMatchKey(h.name);
     const alreadyActive = state.items.some(
-      it=> it.name.toLowerCase() === h.name.toLowerCase()
+      it=> itemMatchKey(it.name) === key
     );
     if(!alreadyActive){
       state.items.push({ id: uid(), name: h.name, category: h.category });
     }
     state.history = state.history.filter(
-      item => item.name.toLowerCase() !== h.name.toLowerCase()
+      item => itemMatchKey(item.name) !== key
     );
     saveState();
     renderAll();
@@ -969,11 +1033,6 @@
   }
 
   function deleteCategory(cat){
-    const itemCount = state.items.filter(it=>it.category === cat).length;
-    const msg = itemCount > 0
-      ? `Delete "${cat}" and its ${itemCount} item(s)?`
-      : `Delete "${cat}"?`;
-    if(!confirm(msg)) return;
     state.categories = state.categories.filter(c=>c !== cat);
     state.items = state.items.filter(it=>it.category !== cat);
     saveState();
@@ -982,7 +1041,6 @@
 
   function clearHistory(){
     if(state.history.length === 0) return;
-    if(!confirm('Clear your "from last trip" list?')) return;
     state.history = [];
     saveState();
     renderHistory();
@@ -990,7 +1048,7 @@
 
   function removeFromHistory(h){
     state.history = state.history.filter(
-      item => !(item.name.toLowerCase() === h.name.toLowerCase() && item.category === h.category)
+      item => itemMatchKey(item.name) !== itemMatchKey(h.name)
     );
     saveState();
     renderHistory();
@@ -1040,7 +1098,9 @@
     }
   });
 
-  document.getElementById('clearHistory').addEventListener('click', clearHistory);
+  document.getElementById('clearHistory').addEventListener('click', function(){
+    armConfirm(this, clearHistory, 'Sure?');
+  });
 
   renderAll();
 })();
