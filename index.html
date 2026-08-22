@@ -193,7 +193,6 @@
     padding:7px 16px 7px 26px;
     border-radius:6px;
     position:relative;
-    margin-bottom:12px;
   }
   .aisle-sign .grommet{
     position:absolute;
@@ -366,62 +365,69 @@
   }
 
   /* ---------- Receipt / history strip ---------- */
-  .receipt{
-    margin-top:32px;
+  .category-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .history-toggle{
+    background:none;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.72rem;
+    letter-spacing:0.03em;
+    white-space:nowrap;
+    padding:5px 2px;
+    flex-shrink:0;
+  }
+  .history-toggle:hover{color:var(--pine);}
+  .history-toggle.open{color:var(--pine);font-weight:600;}
+
+  .category-history{
     background:var(--chalk);
-    border-radius:var(--radius);
-    padding:18px 18px 16px;
+    border-radius:8px;
+    padding:12px 14px 14px;
+    margin-bottom:12px;
     position:relative;
   }
-  .receipt::before{
+  .category-history::before{
     content:"";
     position:absolute;
-    top:0;left:16px;right:16px;
+    top:0;left:14px;right:14px;
     border-top:2px dashed var(--line);
   }
-  .receipt-head{
+  .category-history-head{
     display:flex;
     justify-content:space-between;
     align-items:center;
-    font-family:'IBM Plex Mono',monospace;
-    font-size:0.75rem;
-    letter-spacing:0.08em;
-    text-transform:uppercase;
-    color:var(--ink-soft);
-    margin:8px 0 12px;
-  }
-  #clearHistory{
-    background:none;
-    color:var(--ink-soft);
-    text-decoration:underline;
-    font-family:'IBM Plex Mono',monospace;
-    font-size:0.72rem;
-  }
-  #clearHistory:hover{color:var(--tomato);}
-  #clearHistory.armed{
-    color:var(--tomato);
-    font-weight:600;
-    text-decoration:none;
-  }
-  .receipt-groups{
-    display:flex;
-    flex-direction:column;
-    gap:14px;
-  }
-  .receipt-group-title{
     font-family:'IBM Plex Mono',monospace;
     font-size:0.7rem;
     letter-spacing:0.08em;
     text-transform:uppercase;
     color:var(--ink-soft);
-    margin-bottom:6px;
+    margin:6px 0 10px;
   }
-  .receipt-items{
+  .history-clear{
+    background:none;
+    color:var(--ink-soft);
+    text-decoration:underline;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.68rem;
+  }
+  .history-clear:hover{color:var(--tomato);}
+  .history-clear.armed{
+    color:var(--tomato);
+    font-weight:600;
+    text-decoration:none;
+  }
+  .history-chips{
     display:flex;
     flex-wrap:wrap;
     gap:8px;
   }
-  .receipt-chip{
+  .history-chip{
     display:flex;
     align-items:center;
     gap:2px;
@@ -431,16 +437,16 @@
     padding:2px 4px 2px 12px;
     transition:background .12s ease, border-color .12s ease;
   }
-  .receipt-chip:hover{background:var(--mustard);border-color:var(--mustard);}
-  .receipt-chip:hover .receipt-title{color:var(--pine-dark);}
-  .receipt-title{
+  .history-chip:hover{background:var(--mustard);border-color:var(--mustard);}
+  .history-chip:hover .history-title{color:var(--pine-dark);}
+  .history-title{
     font-family:'IBM Plex Mono',monospace;
     font-size:0.82rem;
     background:none;
     color:var(--ink);
     padding:4px 4px;
   }
-  .receipt-remove{
+  .history-remove{
     font-family:'IBM Plex Mono',monospace;
     font-size:0.9rem;
     background:none;
@@ -449,12 +455,7 @@
     padding:4px 8px;
     line-height:1;
   }
-  .receipt-remove:hover{opacity:1;color:var(--tomato);}
-  .receipt-empty{
-    font-size:0.85rem;
-    color:var(--ink-soft);
-    margin:0;
-  }
+  .history-remove:hover{opacity:1;color:var(--tomato);}
 
   @media (max-width:420px){
     .logo{font-size:1.6rem;}
@@ -488,15 +489,6 @@
   </div>
 
   <main class="categories" id="categoriesContainer"></main>
-
-  <footer class="receipt">
-    <div class="receipt-head">
-      <span>From last trip</span>
-      <button id="clearHistory">clear</button>
-    </div>
-    <div class="receipt-groups" id="receiptItems"></div>
-    <p class="receipt-empty" id="receiptEmpty">Items you check off will show up here so you can add them back next time.</p>
-  </footer>
 
 </div>
 
@@ -629,6 +621,7 @@
   let state = loadState();
   saveState(); // persist any casing/dedup cleanup from normalizeState immediately
   let editingItemId = null;
+  const expandedHistory = new Set();
 
   function uid(){
     return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -657,6 +650,9 @@
       const section = document.createElement('section');
       section.className = 'category';
 
+      const header = document.createElement('div');
+      header.className = 'category-header';
+
       const sign = document.createElement('div');
       sign.className = 'aisle-sign';
       sign.innerHTML = `<span class="grommet"></span>${escapeHtml(cat)}`;
@@ -668,7 +664,80 @@
       delBtn.addEventListener('click', ()=> armConfirm(delBtn, ()=> deleteCategory(cat), '✓ Sure?'));
       sign.appendChild(delBtn);
 
-      section.appendChild(sign);
+      header.appendChild(sign);
+
+      const historyForCat = state.history
+        .filter(h => h.category === cat)
+        .sort((a, b)=> a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+      if(historyForCat.length === 0){
+        expandedHistory.delete(cat);
+      }
+
+      const isOpen = expandedHistory.has(cat);
+
+      if(historyForCat.length > 0){
+        const toggle = document.createElement('button');
+        toggle.className = 'history-toggle' + (isOpen ? ' open' : '');
+        toggle.textContent = `${isOpen ? '▴' : '▾'} Last trip (${historyForCat.length})`;
+        toggle.addEventListener('click', ()=>{
+          if(expandedHistory.has(cat)) expandedHistory.delete(cat);
+          else expandedHistory.add(cat);
+          renderCategories();
+        });
+        header.appendChild(toggle);
+      }
+
+      section.appendChild(header);
+
+      if(historyForCat.length > 0 && isOpen){
+        const panel = document.createElement('div');
+        panel.className = 'category-history';
+
+        const panelHead = document.createElement('div');
+        panelHead.className = 'category-history-head';
+
+        const panelLabel = document.createElement('span');
+        panelLabel.textContent = 'From last trip';
+
+        const clearBtn = document.createElement('button');
+        clearBtn.className = 'history-clear';
+        clearBtn.textContent = 'clear';
+        clearBtn.addEventListener('click', ()=>
+          armConfirm(clearBtn, ()=> clearHistoryForCategory(cat), 'Sure?')
+        );
+
+        panelHead.appendChild(panelLabel);
+        panelHead.appendChild(clearBtn);
+        panel.appendChild(panelHead);
+
+        const chipsRow = document.createElement('div');
+        chipsRow.className = 'history-chips';
+
+        historyForCat.forEach(h=>{
+          const chip = document.createElement('div');
+          chip.className = 'history-chip';
+
+          const title = document.createElement('button');
+          title.className = 'history-title';
+          title.textContent = h.name;
+          title.title = `Add back to ${h.category}`;
+          title.addEventListener('click', ()=> reAddFromHistory(h));
+
+          const remove = document.createElement('button');
+          remove.className = 'history-remove';
+          remove.textContent = '×';
+          remove.title = 'Remove from this list';
+          remove.addEventListener('click', ()=> removeFromHistory(h));
+
+          chip.appendChild(title);
+          chip.appendChild(remove);
+          chipsRow.appendChild(chip);
+        });
+
+        panel.appendChild(chipsRow);
+        section.appendChild(panel);
+      }
 
       const itemsInCat = state.items
         .filter(it=>it.category === cat)
@@ -776,74 +845,9 @@
     });
   }
 
-  function renderHistory(){
-    const wrap = document.getElementById('receiptItems');
-    const empty = document.getElementById('receiptEmpty');
-    wrap.innerHTML = '';
-
-    if(state.history.length === 0){
-      empty.style.display = 'block';
-      return;
-    }
-    empty.style.display = 'none';
-
-    const groups = {};
-    state.history.forEach(h=>{
-      if(!groups[h.category]) groups[h.category] = [];
-      groups[h.category].push(h);
-    });
-
-    const orderedCats = [
-      ...state.categories.filter(c=>groups[c]),
-      ...Object.keys(groups).filter(c=>!state.categories.includes(c)).sort()
-    ];
-
-    orderedCats.forEach(cat=>{
-      const group = document.createElement('div');
-      group.className = 'receipt-group';
-
-      const label = document.createElement('div');
-      label.className = 'receipt-group-title';
-      label.textContent = cat;
-      group.appendChild(label);
-
-      const row = document.createElement('div');
-      row.className = 'receipt-items';
-
-      const sortedItems = [...groups[cat]].sort((a, b)=>
-        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-      );
-
-      sortedItems.forEach(h=>{
-        const chip = document.createElement('div');
-        chip.className = 'receipt-chip';
-
-        const title = document.createElement('button');
-        title.className = 'receipt-title';
-        title.textContent = h.name;
-        title.title = `Add back to ${h.category}`;
-        title.addEventListener('click', ()=> reAddFromHistory(h));
-
-        const remove = document.createElement('button');
-        remove.className = 'receipt-remove';
-        remove.textContent = '×';
-        remove.title = 'Remove from this list';
-        remove.addEventListener('click', ()=> removeFromHistory(h));
-
-        chip.appendChild(title);
-        chip.appendChild(remove);
-        row.appendChild(chip);
-      });
-
-      group.appendChild(row);
-      wrap.appendChild(group);
-    });
-  }
-
   function renderAll(){
     renderCategorySelect();
     renderCategories();
-    renderHistory();
   }
 
   function escapeHtml(str){
@@ -1001,7 +1005,6 @@
     }
     saveState();
     renderCategories();
-    renderHistory();
   }
 
   function reAddFromHistory(h){
@@ -1039,11 +1042,10 @@
     renderAll();
   }
 
-  function clearHistory(){
-    if(state.history.length === 0) return;
-    state.history = [];
+  function clearHistoryForCategory(cat){
+    state.history = state.history.filter(h => h.category !== cat);
     saveState();
-    renderHistory();
+    renderCategories();
   }
 
   function removeFromHistory(h){
@@ -1051,7 +1053,7 @@
       item => itemMatchKey(item.name) !== itemMatchKey(h.name)
     );
     saveState();
-    renderHistory();
+    renderCategories();
   }
 
   // ---------- Events ----------
@@ -1096,10 +1098,6 @@
       e.preventDefault();
       document.getElementById('confirmNewCategory').click();
     }
-  });
-
-  document.getElementById('clearHistory').addEventListener('click', function(){
-    armConfirm(this, clearHistory, 'Sure?');
   });
 
   renderAll();
