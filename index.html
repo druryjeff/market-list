@@ -74,7 +74,6 @@
     white-space:nowrap;
     transition:background .15s ease, color .15s ease;
   }
-  .add-category-btn:hover{background:var(--pine);color:var(--chalk);}
 
   /* ---------- Add item form ---------- */
   .add-item-form{
@@ -117,7 +116,6 @@
     font-weight:600;
     font-size:0.95rem;
   }
-  .add-item-form button:hover{background:#a83a26;}
 
   .add-status{
     min-height:1.1em;
@@ -213,7 +211,6 @@
     line-height:1;
     padding:0 0 0 6px;
   }
-  .aisle-sign .delete-cat:hover{opacity:1;}
   .aisle-sign .delete-cat.armed{
     opacity:1;
     color:var(--mustard);
@@ -287,7 +284,6 @@
     padding:2px 6px;
     line-height:1;
   }
-  .item .edit-btn:hover{opacity:1;color:var(--pine);}
   .item .remove{
     background:none;
     color:var(--ink-soft);
@@ -296,7 +292,6 @@
     padding:2px 6px;
     white-space:nowrap;
   }
-  .item .remove:hover{opacity:1;color:var(--tomato);}
   .item .remove.armed{
     opacity:1;
     color:var(--chalk);
@@ -347,7 +342,6 @@
     font-size:0.85rem;
     font-weight:600;
   }
-  .edit-row .edit-save:hover{background:var(--pine-dark);}
   .edit-row .edit-cancel{
     background:none;
     color:var(--ink-soft);
@@ -355,7 +349,6 @@
     padding:8px 6px;
     text-decoration:underline;
   }
-  .edit-row .edit-cancel:hover{color:var(--tomato);}
 
   .empty-note{
     color:var(--ink-soft);
@@ -382,7 +375,6 @@
     padding:5px 2px;
     flex-shrink:0;
   }
-  .history-toggle:hover{color:var(--pine);}
   .history-toggle.open{color:var(--pine);font-weight:600;}
 
   .category-history{
@@ -409,19 +401,6 @@
     color:var(--ink-soft);
     margin:6px 0 10px;
   }
-  .history-clear{
-    background:none;
-    color:var(--ink-soft);
-    text-decoration:underline;
-    font-family:'IBM Plex Mono',monospace;
-    font-size:0.68rem;
-  }
-  .history-clear:hover{color:var(--tomato);}
-  .history-clear.armed{
-    color:var(--tomato);
-    font-weight:600;
-    text-decoration:none;
-  }
   .history-chips{
     display:flex;
     flex-wrap:wrap;
@@ -437,8 +416,6 @@
     padding:2px 4px 2px 12px;
     transition:background .12s ease, border-color .12s ease;
   }
-  .history-chip:hover{background:var(--mustard);border-color:var(--mustard);}
-  .history-chip:hover .history-title{color:var(--pine-dark);}
   .history-title{
     font-family:'IBM Plex Mono',monospace;
     font-size:0.82rem;
@@ -455,7 +432,26 @@
     padding:4px 8px;
     line-height:1;
   }
-  .history-remove:hover{opacity:1;color:var(--tomato);}
+
+  /* Hover effects only apply on devices with a real pointer (mouse/trackpad).
+     Touch browsers simulate ":hover" on tap, and since several of these
+     elements get removed/re-rendered immediately after a tap (history chips,
+     item rows), the simulated hover state can end up stuck on whatever now
+     occupies that same spot on screen. Scoping hover to (hover: hover)
+     sidesteps that entirely — touchscreens report hover:none and skip it. */
+  @media (hover: hover){
+    .add-category-btn:hover{background:var(--pine);color:var(--chalk);}
+    .add-item-form button:hover{background:#a83a26;}
+    .aisle-sign .delete-cat:hover{opacity:1;}
+    .item .edit-btn:hover{opacity:1;color:var(--pine);}
+    .item .remove:hover{opacity:1;color:var(--tomato);}
+    .edit-row .edit-save:hover{background:var(--pine-dark);}
+    .edit-row .edit-cancel:hover{color:var(--tomato);}
+    .history-toggle:hover{color:var(--pine);}
+    .history-chip:hover{background:var(--mustard);border-color:var(--mustard);}
+    .history-chip:hover .history-title{color:var(--pine-dark);}
+    .history-remove:hover{opacity:1;color:var(--tomato);}
+  }
 
   @media (max-width:420px){
     .logo{font-size:1.6rem;}
@@ -679,7 +675,7 @@
       if(historyForCat.length > 0){
         const toggle = document.createElement('button');
         toggle.className = 'history-toggle' + (isOpen ? ' open' : '');
-        toggle.textContent = `${isOpen ? '▴' : '▾'} Last trip (${historyForCat.length})`;
+        toggle.textContent = `${isOpen ? '▴' : '▾'} Last (${historyForCat.length})`;
         toggle.addEventListener('click', ()=>{
           if(expandedHistory.has(cat)) expandedHistory.delete(cat);
           else expandedHistory.add(cat);
@@ -700,15 +696,7 @@
         const panelLabel = document.createElement('span');
         panelLabel.textContent = 'From last trip';
 
-        const clearBtn = document.createElement('button');
-        clearBtn.className = 'history-clear';
-        clearBtn.textContent = 'clear';
-        clearBtn.addEventListener('click', ()=>
-          armConfirm(clearBtn, ()=> clearHistoryForCategory(cat), 'Sure?')
-        );
-
         panelHead.appendChild(panelLabel);
-        panelHead.appendChild(clearBtn);
         panel.appendChild(panelHead);
 
         const chipsRow = document.createElement('div');
@@ -1040,12 +1028,6 @@
     state.items = state.items.filter(it=>it.category !== cat);
     saveState();
     renderAll();
-  }
-
-  function clearHistoryForCategory(cat){
-    state.history = state.history.filter(h => h.category !== cat);
-    saveState();
-    renderCategories();
   }
 
   function removeFromHistory(h){
